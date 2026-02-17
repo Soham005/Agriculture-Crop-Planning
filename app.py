@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Crop Planning MDP", layout="wide")
-st.title("🌾 Agriculture Crop Planning - Climate Sensitive MDP")
+st.title("🌾 Agriculture Crop Planning - Final Balanced MDP")
 
 # ==========================================
 # Sidebar Controls
@@ -12,11 +12,10 @@ st.title("🌾 Agriculture Crop Planning - Climate Sensitive MDP")
 
 st.sidebar.header("🌧 Climate Settings")
 
-high = st.sidebar.slider("High Rainfall Probability", 0.0, 1.0, 0.3)
+high = st.sidebar.slider("High Rainfall Probability", 0.0, 1.0, 0.4)
 moderate = st.sidebar.slider("Moderate Rainfall Probability", 0.0, 1.0, 0.4)
-low = st.sidebar.slider("Low Rainfall Probability", 0.0, 1.0, 0.3)
+low = st.sidebar.slider("Low Rainfall Probability", 0.0, 1.0, 0.2)
 
-# Normalize
 total = high + moderate + low
 high, moderate, low = high/total, moderate/total, low/total
 
@@ -34,14 +33,14 @@ states = ["Fertile", "Degraded"]
 actions = ["Rice", "Wheat", "Millets"]
 
 # ==========================================
-# Crop Parameters (Balanced)
+# Crop Economics (Recalibrated)
 # ==========================================
 
-yield_good = {"Rice": 60, "Wheat": 55, "Millets": 40}
-yield_bad = {"Rice": 15, "Wheat": 30, "Millets": 35}
-cost = {"Rice": 30, "Wheat": 25, "Millets": 20}
+yield_good = {"Rice": 75, "Wheat": 55, "Millets": 40}
+yield_bad = {"Rice": 5,  "Wheat": 30, "Millets": 35}
+cost = {"Rice": 32, "Wheat": 25, "Millets": 20}
 
-soil_penalty = 0.8  # degraded soil reduces yield
+soil_penalty = 0.85
 
 # ==========================================
 # Reward Function
@@ -58,35 +57,33 @@ def expected_reward(state, action):
         good_yield *= soil_penalty
         bad_yield *= soil_penalty
 
-    reward = (good_rain * good_yield +
-              bad_rain * bad_yield) - cost[action]
-
-    return reward
+    return (good_rain * good_yield +
+            bad_rain * bad_yield) - cost[action]
 
 # ==========================================
-# Transition Function (Better Balanced)
+# Transition Function (Balanced)
 # ==========================================
 
 def transition_probability(state, action):
-    rainfall_factor = 0.5 * high + 0.3 * moderate + 0.2 * low
+    rainfall_strength = 0.7*high + 0.2*moderate + 0.1*low
 
     if action == "Rice":
         if state == "Fertile":
-            return 0.5 * rainfall_factor
+            return 0.75 * rainfall_strength
         else:
-            return 0.2 * rainfall_factor
+            return 0.40 * rainfall_strength
 
     elif action == "Wheat":
         if state == "Fertile":
-            return 0.8 * rainfall_factor
+            return 0.85 * rainfall_strength
         else:
-            return 0.5 * rainfall_factor
+            return 0.55 * rainfall_strength
 
     elif action == "Millets":
         if state == "Fertile":
-            return 0.9
+            return 0.95
         else:
-            return 0.75
+            return 0.80
 
 # ==========================================
 # Value Iteration
@@ -157,19 +154,16 @@ ax.set_title("Optimal State Values")
 st.pyplot(fig)
 
 # ==========================================
-# Interpretation Logic
+# Interpretation
 # ==========================================
 
 st.subheader("🧠 Interpretation")
 
-if low > 0.5:
-    st.write("Severe drought risk detected → Resilient crops (Millets) dominate.")
-
-elif high > 0.6:
-    st.write("Stable high rainfall → High-yield crops (Rice) are optimal.")
-
-elif 0.2 < low < 0.4:
-    st.write("Moderate climate variability → Balanced crops (Wheat) become optimal.")
-
+if high > 0.6 and low < 0.2:
+    st.write("Stable high rainfall → Rice dominates due to superior yield.")
+elif low > 0.45:
+    st.write("High drought risk → Millets dominate for resilience and soil recovery.")
+elif 0.25 < low < 0.45:
+    st.write("Moderate uncertainty → Wheat becomes the balanced optimal strategy.")
 else:
-    st.write("Climate conditions produce mixed strategic outcomes.")
+    st.write("Climate produces mixed strategic outcomes.")
