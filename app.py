@@ -4,12 +4,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Crop Planning MDP", layout="wide")
+st.title("🌾 Agriculture Crop Planning - Climate Sensitive MDP")
 
-st.title("🌾 Agriculture Crop Planning - Advanced MDP Simulation")
-
-# ==============================
+# ==========================================
 # Sidebar Controls
-# ==============================
+# ==========================================
 
 st.sidebar.header("🌧 Climate Settings")
 
@@ -17,36 +16,36 @@ high = st.sidebar.slider("High Rainfall Probability", 0.0, 1.0, 0.3)
 moderate = st.sidebar.slider("Moderate Rainfall Probability", 0.0, 1.0, 0.4)
 low = st.sidebar.slider("Low Rainfall Probability", 0.0, 1.0, 0.3)
 
+# Normalize
 total = high + moderate + low
 high, moderate, low = high/total, moderate/total, low/total
 
-gamma = st.sidebar.slider("Discount Factor (γ)", 0.0, 0.99, 0.9)
-theta = 0.001  # convergence threshold
+gamma = st.sidebar.slider("Discount Factor (γ)", 0.5, 0.99, 0.9)
+theta = 0.0001
 
 st.write("### Rainfall Distribution (Normalized)")
 st.write(f"High: {high:.2f}, Moderate: {moderate:.2f}, Low: {low:.2f}")
 
-# ==============================
+# ==========================================
 # States and Actions
-# ==============================
+# ==========================================
 
 states = ["Fertile", "Degraded"]
 actions = ["Rice", "Wheat", "Millets"]
 
-# ==============================
-# Base Crop Parameters
-# ==============================
+# ==========================================
+# Crop Parameters (Balanced)
+# ==========================================
 
-yield_good = {"Rice": 60, "Wheat": 50, "Millets": 40}
-yield_bad = {"Rice": 20, "Wheat": 30, "Millets": 35}
+yield_good = {"Rice": 60, "Wheat": 55, "Millets": 40}
+yield_bad = {"Rice": 15, "Wheat": 30, "Millets": 35}
 cost = {"Rice": 30, "Wheat": 25, "Millets": 20}
 
-# Soil penalty (Degraded soil reduces yield)
-soil_penalty = 0.75
+soil_penalty = 0.8  # degraded soil reduces yield
 
-# ==============================
+# ==========================================
 # Reward Function
-# ==============================
+# ==========================================
 
 def expected_reward(state, action):
     good_rain = high + moderate
@@ -55,7 +54,6 @@ def expected_reward(state, action):
     good_yield = yield_good[action]
     bad_yield = yield_bad[action]
 
-    # Apply soil penalty if degraded
     if state == "Degraded":
         good_yield *= soil_penalty
         bad_yield *= soil_penalty
@@ -65,40 +63,34 @@ def expected_reward(state, action):
 
     return reward
 
-# ==============================
-# Transition Function
-# ==============================
+# ==========================================
+# Transition Function (Better Balanced)
+# ==========================================
 
 def transition_probability(state, action):
-    """
-    Returns probability of next state being Fertile.
-    Degraded probability = 1 - returned value
-    """
-
-    # Base rainfall influence
-    rainfall_factor = high * 0.6 + moderate * 0.3 + low * 0.1
+    rainfall_factor = 0.5 * high + 0.3 * moderate + 0.2 * low
 
     if action == "Rice":
         if state == "Fertile":
-            return 0.6 * rainfall_factor
+            return 0.5 * rainfall_factor
         else:
-            return 0.3 * rainfall_factor
+            return 0.2 * rainfall_factor
 
     elif action == "Wheat":
         if state == "Fertile":
-            return 0.75 * rainfall_factor
+            return 0.8 * rainfall_factor
         else:
-            return 0.4 * rainfall_factor
+            return 0.5 * rainfall_factor
 
     elif action == "Millets":
         if state == "Fertile":
             return 0.9
         else:
-            return 0.7
+            return 0.75
 
-# ==============================
+# ==========================================
 # Value Iteration
-# ==============================
+# ==========================================
 
 V = {s: 0 for s in states}
 policy = {s: None for s in states}
@@ -134,9 +126,9 @@ while True:
     if delta < theta:
         break
 
-# ==============================
+# ==========================================
 # Display Results
-# ==============================
+# ==========================================
 
 col1, col2 = st.columns(2)
 
@@ -152,9 +144,9 @@ with col2:
                                       columns=["Value"])
     st.table(value_df)
 
-# ==============================
+# ==========================================
 # Visualization
-# ==============================
+# ==========================================
 
 st.subheader("📊 State Value Comparison")
 
@@ -164,17 +156,20 @@ ax.set_ylabel("Value")
 ax.set_title("Optimal State Values")
 st.pyplot(fig)
 
-# ==============================
-# Interpretation Section
-# ==============================
+# ==========================================
+# Interpretation Logic
+# ==========================================
 
 st.subheader("🧠 Interpretation")
 
-if policy["Fertile"] == "Rice" and policy["Degraded"] == "Rice":
-    st.write("High rainfall favors water-intensive crops like Rice.")
+if low > 0.5:
+    st.write("Severe drought risk detected → Resilient crops (Millets) dominate.")
 
-elif policy["Degraded"] == "Millets":
-    st.write("Climate variability pushes the system toward resilient crops like Millets to restore soil health.")
+elif high > 0.6:
+    st.write("Stable high rainfall → High-yield crops (Rice) are optimal.")
+
+elif 0.2 < low < 0.4:
+    st.write("Moderate climate variability → Balanced crops (Wheat) become optimal.")
 
 else:
-    st.write("Balanced rainfall conditions favor moderate-risk crops like Wheat.")
+    st.write("Climate conditions produce mixed strategic outcomes.")
